@@ -1,0 +1,47 @@
+services:
+  monitor:
+    build: .
+    image: pylon-monitor:local
+    container_name: pylon-monitor
+    restart: unless-stopped
+    devices:
+      - ${PYLON_DEVICE:-/dev/ttyUSB0}:/dev/ttyPylon
+    group_add:
+      - "${DIALOUT_GID:-20}"  # gruppo dialout dell'host, per accedere alla porta seriale
+    environment:
+      - TZ=${TZ:-Europe/Rome}
+      - PYLON_PORT=/dev/ttyPylon
+      - PYLON_DATA=/data
+      - HOST=0.0.0.0
+      - PORT=8765
+      - INTERVAL=${INTERVAL:-30}
+      - NOMINAL_AH=${NOMINAL_AH:-50}   # capacità di un modulo (US2000C: 50 Ah)
+      - CUTOFF_SOC=${CUTOFF_SOC:-30}   # soglia di passaggio alla rete impostata sull'inverter
+    volumes:
+      - pylon_data:/data
+    ports:
+      - "${WEB_PORT:-8765}:8765"
+    networks:
+      - pylon_net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/latest', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  pylon_net:
+    driver: bridge
+
+volumes:
+  pylon_data:
