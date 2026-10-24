@@ -1,5 +1,7 @@
 # Pylontech console monitor
 
+[![CI](https://github.com/111blackeagle111/pylontech-console-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/111blackeagle111/pylontech-console-monitor/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/111blackeagle111/pylontech-console-monitor)](https://github.com/111blackeagle111/pylontech-console-monitor/releases)
+
 [Italiano](README.it.md) | English
 
 A small self-hosted web dashboard for Pylontech battery banks (US2000C, US3000C and similar), read through the RS232 **console port** of the master module. It runs as a single Python script, usually in a Docker container on a Raspberry Pi, and needs no Home Assistant, MQTT broker or extra hardware beyond the console cable.
@@ -61,13 +63,29 @@ Edit `.env`:
 - `NOMINAL_AH`: capacity of one module (50 for US2000C, 74 for US3000C).
 - `CUTOFF_SOC`: the state of charge at which your inverter switches back to the grid; it is used for the usable energy and runtime estimates.
 
-Then:
+Then start it with the prebuilt image (amd64, arm64, armv7):
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+or build it locally:
 
 ```bash
 docker compose up -d --build
 ```
 
 Open `http://<host>:8765`.
+
+## Tests
+
+```bash
+pip install pyserial
+python3 -m unittest discover -s tests -v
+```
+
+The tests use real console outputs of a 4 × US2000C bank (serial numbers removed) and a fake serial port, so they need no battery.
 
 ## Run without Docker
 

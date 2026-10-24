@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import serial
 
+VERSION = "0.1.0"
 SERIAL = os.environ.get("PYLON_PORT", "/dev/ttyUSB0")
 DATA = os.environ.get("PYLON_DATA", os.path.dirname(os.path.abspath(__file__)))
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -30,7 +31,7 @@ STAT_KEYS = ["CYCLE Times", "Dsg Cap", "Pwr Coulomb", "Bat OV Times", "Bat HV Ti
 WAKE = bytes.fromhex("7E3230303134363832433030343835323046434333300D")  # risveglio console a 1200 baud
 
 latest = {"ts": None, "modules": [], "error": "in attesa della prima lettura", "details": {}, "log": [],
-          "config": {"nominal_ah": NOMINAL_AH, "cutoff_soc": CUTOFF_SOC, "interval": INTERVAL}}
+          "version": VERSION, "config": {"nominal_ah": NOMINAL_AH, "cutoff_soc": CUTOFF_SOC, "interval": INTERVAL}}
 
 
 def command(s, cmd, timeout=6):
@@ -555,5 +556,5 @@ if __name__ == "__main__":
     os.makedirs(DATA, exist_ok=True)
     migrate_legacy()
     threading.Thread(target=poller, daemon=True).start()
-    print(f"Monitor su http://{HOST}:{PORT} (lettura ogni {INTERVAL}s, dati in {DATA})")
+    print(f"Pylontech console monitor {VERSION} su http://{HOST}:{PORT} (lettura ogni {INTERVAL}s, dati in {DATA})")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

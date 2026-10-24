@@ -1,0 +1,39 @@
+
+log
+
+@
+
+ Index   : 31    
+
+ Time    : 26-10-24 23:40:47
+
+ ModID   : BMM
+
+ Code    : 0
+
+ Info    : The device start discharging. 
+
+
+
+ Index   : 30    
+
+ Time    : 26-10-24 23:40:45
+
+ ModID   : BMM
+
+ Code    : 91ea
+
+ Info    : The device start charging. 
+
+
+ Index   : 29    
+
+ Time    : 26-10-24 23:38:31
+
+ ModID   : BMM
+
+ Code    : 0
+
+ Info    : The device start discharging. 
+
+Press [Enter] to be continued,other key to exit

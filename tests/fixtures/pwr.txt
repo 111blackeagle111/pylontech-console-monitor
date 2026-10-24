@@ -1,0 +1,45 @@
+
+pwr
+
+@
+
+Power Volt   Curr   Tempr  Tlow   Thigh  Vlow   Vhigh  Base.St  Volt.St  Curr.St  Temp.St  Coulomb  Time                 B.V.St   B.T.St   MosTempr M.T.St  
+
+1     49233  -6683  20700  18400  18900  3251   3297   Dischg   Normal   Normal   Normal   76%      2026-10-24 23:52:27  Normal   Normal  19200    Normal  
+
+2     49255  -1405  19000  17500  17800  3233   3318   Dischg   Normal   Normal   Normal   15%      2026-10-24 23:52:26  Normal   Normal  17300    Normal  
+
+3     49228  -6436  19000  17900  18700  3273   3293   Dischg   Normal   Normal   Normal   72%      2026-10-24 23:52:26  Normal   Normal  17500    Normal  
+
+4     49263  -6152  18700  17400  17800  3276   3294   Dischg   Normal   Normal   Normal   76%      2026-10-24 23:52:26  Normal   Normal  17200    Normal  
+
+5     -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+6     -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+7     -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+8     -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+9     -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+10    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+11    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+12    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+13    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+14    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+15    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+16    -      -      -      -      -      -      -      Absent   -        -        -        -        -                    -        -       
+
+Command completed successfully
+
+$$
+
+pylon>
+
