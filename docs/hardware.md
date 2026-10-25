@@ -60,6 +60,31 @@ Swap TX/RX on the adapter side as needed (battery TX → adapter RX).
 - After a power cycle the console can stay silent. The monitor sends the standard 1200 baud wake-up sequence on its own; if that is not enough, unplug and replug the RJ45 connector, or use the hardware wake-up pins described above.
 - Only one program at a time can use the port: stop the monitor before using BatteryView.
 
+### Before a warranty claim: save event and history data
+
+Pylontech support relies on the BMS **event data** to analyse a failure, so save it before shipping a module back. With the module's console connected to a Windows PC running BatteryView:
+
+1. Open the *History Data Window* from the *Window* menu.
+2. Click *History*, wait 1–2 minutes until the download completes, and save the file.
+3. Repeat with *Event data* and save that file too. The event data matters most.
+
+Also keep a screenshot of the battery module values shown by BatteryView. This monitor's readings (cell voltages, health flags, `stat N` counters) are a useful addition, not a replacement.
+
+### Firmware updates
+
+The monitor never updates firmware; that is done with BatteryView, following Pylontech's instructions. Check the **8th and 9th characters of the serial number** first:
+
+- `E2` or `C3` (US2000C, US3000C, UP5000) or `C5` (US5000): use the **.zip** firmware file and **BatteryView 3.0.28 or newer**.
+- Other serials can use the .bin file.
+
+Pylontech recommends always using the .zip file with BatteryView 3.0.28 or newer for US2000C, US3000C, UP5000 and US5000, because a wrong file can damage the board. Ask Pylontech or your installer for the firmware files.
+
+The BMS clock (often hours off, as the module details show) can also be set from BatteryView.
+
+### Warranty
+
+Pylontech states that using console commands outside its own procedures can void the warranty. This monitor only sends read commands (`pwr`, `bat`, `soh`, `stat`, `info`, `log`), but the decision to connect it is yours.
+
 The pinout above is taken from Pylontech's service procedure for BatteryView. That document is not included in this repository; ask Pylontech or your installer for it.
 
 ## Italiano
@@ -119,5 +144,30 @@ Se serve, incrocia TX e RX sul lato adattatore (TX della batteria → RX dell'ad
 - Controlla che il cavo sia nella porta **CONSOLE** del modulo **master** (quello collegato all'inverter), non in una porta link o CAN/RS485.
 - Dopo un'interruzione di corrente la console può restare muta. Il monitor invia da solo la sequenza standard di risveglio a 1200 baud; se non basta, stacca e riattacca il connettore RJ45 oppure usa i pin di risveglio hardware descritti sopra.
 - La porta può essere usata da un solo programma alla volta: ferma il monitor prima di usare BatteryView.
+
+### Prima di una pratica di garanzia: salva i dati evento e storico
+
+L'assistenza Pylontech analizza i guasti soprattutto con i **dati evento** del BMS: salvali prima di spedire un modulo. Con la console del modulo collegata a un PC Windows con BatteryView:
+
+1. Apri la *History Data Window* dal menu *Window*.
+2. Clicca *History*, aspetta 1–2 minuti che lo scaricamento finisca e salva il file.
+3. Ripeti con *Event data* e salva anche quel file. I dati evento sono i più importanti.
+
+Conserva anche uno screenshot dei valori del modulo mostrati da BatteryView. Le letture di questo monitor (tensioni delle celle, stato di salute, contatori di `stat N`) sono un'utile aggiunta, non un sostituto.
+
+### Aggiornamento del firmware
+
+Il monitor non aggiorna mai il firmware: si fa con BatteryView, seguendo le istruzioni di Pylontech. Prima controlla l'**8° e il 9° carattere del numero di serie**:
+
+- `E2` o `C3` (US2000C, US3000C, UP5000) oppure `C5` (US5000): usa il firmware in formato **.zip** e **BatteryView 3.0.28 o successivo**.
+- Gli altri numeri di serie possono usare il file .bin.
+
+Pylontech consiglia di usare sempre il .zip con BatteryView 3.0.28 o successivo per US2000C, US3000C, UP5000 e US5000, perché un file sbagliato può danneggiare la scheda. I file del firmware si chiedono a Pylontech o all'installatore.
+
+Da BatteryView si può anche rimettere in orario l'orologio del BMS, che spesso è sfasato di ore come mostrano i dettagli del modulo.
+
+### Garanzia
+
+Pylontech scrive che usare comandi della console non previsti dalle sue procedure può far decadere la garanzia. Questo monitor invia solo comandi di lettura (`pwr`, `bat`, `soh`, `stat`, `info`, `log`), ma la scelta di collegarlo resta tua.
 
 La piedinatura viene dalla procedura di assistenza Pylontech per BatteryView. Quel documento non è incluso nel repository: chiedilo a Pylontech o al tuo installatore.
