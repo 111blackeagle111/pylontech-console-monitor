@@ -4,3 +4,7 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # una sola PR al mese con tutti gli aggiornamenti delle action, invece di una per action
+    groups:
+      github-actions:
+        patterns: ["*"]
