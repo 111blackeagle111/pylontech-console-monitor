@@ -27,7 +27,7 @@ The usual cable is RJ45 (or RJ11) → DB9 → USB serial adapter. Any USB-**RS23
 | 4 | wake-up, +5…12 V |
 | 5 | wake-up GND |
 
-Pins 4 and 5 are an optional hardware wake-up input: a pulse of at least 0.5 s at 5–15 mA wakes a sleeping console. Most ready-made cables only use 3, 6 and 8.
+Pins 4 and 5 are an optional hardware wake-up input: a pulse of at least 0.5 s at 5–15 mA wakes a sleeping console, and **the voltage must then be removed** for normal operation, so never leave it applied permanently. A normal three-wire console cable uses only pins 3, 6 and 8 and leaves 4 and 5 unconnected; most ready-made cables are built this way.
 
 **Wiring to a DB9 USB-RS232 adapter** (the adapter is a PC-side DTE port):
 
@@ -112,7 +112,7 @@ Il cavo tipico è RJ45 (o RJ11) → DB9 → adattatore seriale USB. Su Linux va 
 | 4 | risveglio, +5…12 V |
 | 5 | GND del risveglio |
 
-I pin 4 e 5 sono un ingresso di risveglio hardware facoltativo: un impulso di almeno 0,5 s a 5–15 mA risveglia una console addormentata. La maggior parte dei cavi già pronti usa solo i pin 3, 6 e 8.
+I pin 4 e 5 sono un ingresso di risveglio hardware facoltativo: un impulso di almeno 0,5 s a 5–15 mA risveglia una console addormentata, e **dopo l'impulso la tensione va tolta** per il funzionamento normale, quindi non lasciarla mai applicata in modo permanente. Un normale cavo console a tre fili usa solo i pin 3, 6 e 8 e lascia scollegati il 4 e il 5; la maggior parte dei cavi già pronti è fatta così.
 
 **Collegamento a un adattatore USB-RS232 con DB9** (l'adattatore è una porta lato PC, DTE):
 
