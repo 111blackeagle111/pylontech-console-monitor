@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import serial
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 SERIAL = os.environ.get("PYLON_PORT", "/dev/ttyUSB0")
 DATA = os.environ.get("PYLON_DATA", os.path.dirname(os.path.abspath(__file__)))
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -24,13 +24,13 @@ SOH_EVERY = 10      # cicli fra due letture soh (lo stato di salute cambia lenta
 DETAIL_EVERY = 20   # cicli fra due letture di pwr N, stat N e registro eventi
 INFO_EVERY = 120    # cicli fra due letture di info N (dati quasi statici)
 FIELDS = ["ts", "id", "volt", "curr", "temp", "vlow", "vhigh", "soc", "base", "volt_st", "curr_st", "temp_st"]
-# contatori di stat N salvati una volta al giorno, per vedere se gli eventi aumentano
-STAT_KEYS = ["CYCLE Times", "Dsg Cap", "Pwr Coulomb", "Bat OV Times", "Bat HV Times", "Bat LV Times", "Bat UV Times",
+# colonne dei vecchi CSV giornalieri dei contatori (v0.1.0): servono solo per rileggerli
+LEGACY_STAT_KEYS = ["CYCLE Times", "Dsg Cap", "Pwr Coulomb", "Bat OV Times", "Bat HV Times", "Bat LV Times", "Bat UV Times",
              "COC Times", "COC2 Times", "COCA Times", "DOC Times", "DOC2 Times", "DOCA Times", "SC Times",
              "Shut Times", "Reset Times", "SOH Times", "LifeWarn Times", "LifeAlarm Times"]
 WAKE = bytes.fromhex("7E3230303134363832433030343835323046434333300D")  # risveglio console a 1200 baud
 
-latest = {"ts": None, "modules": [], "error": "in attesa della prima lettura", "details": {}, "log": [],
+latest = {"ts": None, "modules": [], "alerts": [], "error": "in attesa della prima lettura", "details": {}, "log": [],
           "version": VERSION, "config": {"nominal_ah": NOMINAL_AH, "cutoff_soc": CUTOFF_SOC, "interval": INTERVAL}}
 
 
@@ -125,30 +125,42 @@ def append_log(ts, mods):
 
 
 def append_stats(ts, details):
-    path = os.path.join(DATA, f"pylontech-stat-{ts[:7]}.csv")
-    new = not os.path.exists(path)
-    with open(path, "a", newline="") as fh:
-        w = csv.writer(fh)
-        if new:
-            w.writerow(["ts", "id"] + STAT_KEYS)
+    """Copia giornaliera di tutti i contatori di stat N, una riga JSON per modulo."""
+    with open(os.path.join(DATA, f"pylontech-stats-{ts[:7]}.jsonl"), "a") as fh:
         for mid, d in sorted(details.items()):
-            stat = d.get("stat", {})
-            if stat:
-                w.writerow([ts, mid] + [stat.get(k, "") for k in STAT_KEYS])
+            if d.get("stat"):
+                fh.write(json.dumps({"ts": ts, "id": mid, "stat": d["stat"]}) + "\n")
+
+
+def snapshot_due(stat_day, ts, fresh):
+    """La copia del giorno si fa solo con contatori appena letti, non con quelli rimasti in memoria."""
+    return fresh and stat_day != ts[:10]
 
 
 def stats_history(days):
-    """Ultima riga di contatori per modulo e per giorno."""
+    """Ultima copia dei contatori per modulo e per giorno. Le righe danneggiate vengono saltate."""
     first = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     out = {}
-    for path in sorted(glob.glob(os.path.join(DATA, "pylontech-stat-????-??.csv"))):
-        if path[-11:-4] < first[:7]:
-            continue
-        with open(path) as fh:
-            for r in csv.DictReader(fh):
-                if r["ts"][:10] >= first:
-                    out.setdefault(r["id"], {})[r["ts"][:10]] = {k: r.get(k, "") for k in STAT_KEYS}
-    return {mid: sorted(days_.items()) for mid, days_ in out.items()}
+
+    def keep(ts, mid, stat):
+        if isinstance(ts, str) and ts[:10] >= first and isinstance(stat, dict):
+            out.setdefault(str(mid), {})[ts[:10]] = stat
+
+    for path in sorted(glob.glob(os.path.join(DATA, "pylontech-stat-????-??.csv"))):  # formato v0.1.0
+        if path[-11:-4] >= first[:7]:
+            with open(path, newline="") as fh:
+                for r in csv.DictReader(fh):
+                    keep(r.get("ts"), r.get("id"), {k: r[k] for k in LEGACY_STAT_KEYS if r.get(k)})
+    for path in sorted(glob.glob(os.path.join(DATA, "pylontech-stats-????-??.jsonl"))):
+        if path[-13:-6] >= first[:7]:
+            with open(path) as fh:
+                for line in fh:
+                    try:
+                        r = json.loads(line)
+                        keep(r.get("ts"), r.get("id"), r.get("stat"))
+                    except (ValueError, AttributeError):
+                        continue
+    return {mid: sorted(d.items()) for mid, d in out.items()}
 
 
 def migrate_legacy():
@@ -161,37 +173,94 @@ def migrate_legacy():
             os.replace(old, target)
 
 
+def read_bank(cmd, cycle, soh, details):
+    """Un ciclo di lettura. Restituisce i moduli e l'elenco delle letture non riuscite.
+
+    Una risposta vuota non cancella i dati buoni già letti (stato di salute, dettagli):
+    il modulo viene segnato con read_errors e il problema finisce negli avvisi.
+    """
+    mods = parse_pwr(cmd("pwr"))
+    if not mods:
+        raise RuntimeError("risposta pwr vuota: il cavo è sul modulo master (1)?")
+    problems = []
+    for m in mods:
+        mid, errs = m["id"], []
+        rows = parse_table(cmd(f"bat {mid}"), 12)
+        if not rows:
+            errs.append("tensioni delle celle")
+        if cycle % SOH_EVERY == 0 or mid not in soh:
+            got = {int(r[0]): r[3] for r in parse_table(cmd(f"soh {mid}"), 4)}
+            if got:
+                soh[mid] = got
+            elif mid not in soh:
+                errs.append("salute delle celle")
+        m["cells"] = [{"n": int(r[0]), "v": int(r[1]), "t": int(r[3]) / 1000, "bal": r[-1] == "Y",
+                       "soh": soh.get(mid, {}).get(int(r[0]), "?")} for r in rows]
+        if rows and rows[0][9].isdigit():
+            m["remain_mah"] = int(rows[0][9])
+        d = details.setdefault(mid, {})
+        if cycle % DETAIL_EVERY == 0:
+            for key, command_, timeout in (("pwr", f"pwr {mid}", 6), ("stat", f"stat {mid}", 10)):
+                got = parse_kv(cmd(command_, timeout))
+                if got:
+                    d[key] = got
+                else:
+                    errs.append(command_)
+            d["ts"] = datetime.now().isoformat(timespec="seconds")
+        if cycle % INFO_EVERY == 0 or "info" not in d:
+            got = parse_kv(cmd(f"info {mid}"))
+            if got:
+                d["info"] = got
+        m["read_errors"] = errs
+        problems += [f"modulo {mid}: {e}" for e in errs]
+    return mods, problems
+
+
+BMS_STATES = (("volt_st", "tensione"), ("curr_st", "corrente"), ("temp_st", "temperatura"),
+              ("bv_st", "tensione batteria"), ("bt_st", "temperatura batteria"), ("mos_st", "temperatura MOSFET"))
+
+
+def assess(mods):
+    """Avvisi del banco e livello di ogni modulo (ok, warn, crit), calcolati qui e non nel browser."""
+    alerts, avg = [], sum(m["soc"] for m in mods) / max(1, len(mods))
+
+    def add(m, level, text):
+        alerts.append({"id": m["id"], "level": level, "text": f"Modulo {m['id']}: {text}"})
+        if level == "crit" or m["level"] == "ok":
+            m["level"] = level
+
+    for m in mods:
+        m["level"] = "ok"
+        bad_states = [f"{label} {m[k]}" for k, label in BMS_STATES if m.get(k) not in (None, "Normal")]
+        if bad_states:
+            add(m, "crit", "il BMS segnala " + ", ".join(bad_states))
+        bad_cells = [c["n"] for c in m.get("cells", []) if c["soh"] == "Abnormal"]
+        if bad_cells:
+            add(m, "crit", "stato di salute anomalo sulla cella " + ", ".join(map(str, bad_cells)))
+        if m.get("read_errors") or not m.get("cells"):
+            add(m, "warn", "lettura non riuscita di " + (", ".join(m.get("read_errors") or ["celle"]))
+                + ": gli avvisi sulle celle potrebbero mancare")
+        if abs(m["soc"] - avg) > 20:
+            add(m, "warn", f"carica al {m['soc']}%, la media del banco è {avg:.0f}%")
+        if m["vhigh"] - m["vlow"] > 50:
+            add(m, "warn", f"scarto fra le celle di {m['vhigh'] - m['vlow']} mV")
+    return alerts
+
+
 def poller():
     s, cycle, soh, stat_day = None, 0, {}, None
     details = latest["details"]
     while True:
         try:
             s = s or open_console()
-            mods = parse_pwr(command(s, "pwr"))
-            if not mods:
-                raise RuntimeError("risposta pwr vuota: il cavo è sul modulo master (1)?")
-            for m in mods:
-                mid = m["id"]
-                rows = parse_table(command(s, f"bat {mid}"), 12)
-                if cycle % SOH_EVERY == 0:
-                    soh[mid] = {int(r[0]): r[3] for r in parse_table(command(s, f"soh {mid}"), 4)}
-                m["cells"] = [{"n": int(r[0]), "v": int(r[1]), "t": int(r[3]) / 1000, "bal": r[-1] == "Y",
-                               "soh": soh.get(mid, {}).get(int(r[0]), "?")} for r in rows]
-                if rows and rows[0][9].isdigit():
-                    m["remain_mah"] = int(rows[0][9])
-                d = details.setdefault(mid, {})
-                if cycle % DETAIL_EVERY == 0:
-                    d["pwr"] = parse_kv(command(s, f"pwr {mid}"))
-                    d["stat"] = parse_kv(command(s, f"stat {mid}", 10))
-                    d["ts"] = datetime.now().isoformat(timespec="seconds")
-                if cycle % INFO_EVERY == 0:
-                    d["info"] = parse_kv(command(s, f"info {mid}"))
+            mods, problems = read_bank(lambda c, timeout=6: command(s, c, timeout), cycle, soh, details)
             if cycle % DETAIL_EVERY == 0:
                 latest["log"] = read_log(s)
             ts = datetime.now().isoformat(timespec="seconds")
-            latest.update(ts=ts, modules=mods, error=None)
+            latest.update(ts=ts, modules=mods, alerts=assess(mods),
+                          error=("Lettura parziale: " + "; ".join(problems)) if problems else None)
             append_log(ts, mods)
-            if stat_day != ts[:10] and any(d.get("stat") for d in details.values()):
+            if snapshot_due(stat_day, ts, fresh=cycle % DETAIL_EVERY == 0) and any(d.get("stat") for d in details.values()):
                 append_stats(ts, details)
                 stat_day = ts[:10]
             cycle += 1
@@ -210,16 +279,20 @@ def history(hours, points=360):
     bucket = max(INTERVAL, hours * 3600 / points)
     acc = {}  # (id, bucket) -> [n, soc, delta, power]
     for path in files:
-        with open(path) as fh:
+        with open(path, newline="") as fh:
             for r in csv.DictReader(fh):
-                t = datetime.fromisoformat(r["ts"])
+                try:  # una riga troncata (spegnimento durante la scrittura) non deve fermare lo storico
+                    t = datetime.fromisoformat(r["ts"])
+                    vals = int(r["id"]), int(r["soc"]), int(r["vhigh"]) - int(r["vlow"]), float(r["volt"]) * float(r["curr"])
+                except (TypeError, ValueError, KeyError):
+                    continue
                 if t < since:
                     continue
-                a = acc.setdefault((int(r["id"]), int(t.timestamp() // bucket)), [0, 0, 0, 0])
+                a = acc.setdefault((vals[0], int(t.timestamp() // bucket)), [0, 0, 0, 0])
                 a[0] += 1
-                a[1] += int(r["soc"])
-                a[2] += int(r["vhigh"]) - int(r["vlow"])
-                a[3] += float(r["volt"]) * float(r["curr"])
+                a[1] += vals[1]
+                a[2] += vals[2]
+                a[3] += vals[3]
     series, total = {}, {}
     for (mid, b), (n, soc, delta, power) in sorted(acc.items(), key=lambda kv: kv[0][1]):
         t = int(b * bucket * 1000)
@@ -387,15 +460,14 @@ async function load(){
   cfg=d.config||cfg;const m=d.modules||[];
   const dn=(((d.details||{})[1]||{}).info||{})['Device name'],model=dn?'Pylontech '+dn:'Pylontech';
   document.getElementById('sub').textContent=m.length?`${model}, ${m.length} moduli, ${fmt(m.length*cfg.nominal_ah*48/1000,1)} kWh nominali`:'Pylontech';
-  det=d.details||{};lastMods=m;conn(d.ts,d.error);kpi(m);alerts(m);rows(m);logView(d.log||[],m);
+  det=d.details||{};lastMods=m;conn(d.ts,d.error);kpi(m);alerts(d.alerts||[]);rows(m);logView(d.log||[],m);
 }
 function conn(ts,err){const dot=document.getElementById('dot'),t=document.getElementById('ts');
   const age=ts?(Date.now()-Date.parse(ts))/1000:Infinity, fresh=age<cfg.interval*3&&!err;
   dot.className='dot '+(fresh?'on':'off');
   t.replaceChildren(document.createTextNode(ts?'Aggiornato alle '+new Date(ts).toLocaleTimeString('it-IT'):'Nessuna lettura'));
   if(err)t.append(el('span',{class:'err'},'. '+err));else if(!fresh&&ts)t.append(el('span',{class:'err'},'. Dati non aggiornati'))}
-function status(x,avg){const d=x.vhigh-x.vlow,bad=(x.cells||[]).some(c=>c.soh==='Abnormal')||[x.volt_st,x.curr_st,x.temp_st].some(s=>s!=='Normal');
-  return bad?['crit','Anomalia']:(Math.abs(x.soc-avg)>20||d>50)?['warn','Attenzione']:['ok','Normale']}
+function status(x){return x.level==='crit'?['crit','Anomalia']:x.level==='warn'?['warn','Attenzione']:['ok','Normale']}
 function kpi(m){
   if(!m.length)return document.getElementById('kpi').replaceChildren();
   const p=m.reduce((a,x)=>a+x.volt*x.curr,0),avg=m.reduce((a,x)=>a+x.soc,0)/m.length;
@@ -410,15 +482,9 @@ function kpi(m){
     cell('Energia utilizzabile',fmt(above,1),'kWh','sopra la soglia del '+cfg.cutoff_soc+'%'),
     cell(t[0],t[1],'',t[2]))
 }
-function alerts(m){
-  const out=[],avg=m.reduce((a,x)=>a+x.soc,0)/(m.length||1);
-  const add=(lvl,text,meta)=>{const r=el('div',{class:'al '+lvl,role:'alert'});r.append(el('span',{class:'ic','aria-hidden':'true'},lvl==='crit'?'✕':'!'),el('span',{},text),el('span',{class:'m'},meta));out.push(r)};
-  for(const x of m){const d=x.vhigh-x.vlow,st=[x.volt_st,x.curr_st,x.temp_st].filter(s=>s!=='Normal'),bad=(x.cells||[]).filter(c=>c.soh==='Abnormal');
-    if(st.length)add('crit',`Modulo ${x.id}: il BMS segnala ${st.join(', ')}`,'Anomalia');
-    if(bad.length)add('crit',`Modulo ${x.id}: stato di salute anomalo sulla cella ${bad.map(c=>c.n).join(', ')}`,'Anomalia');
-    if(Math.abs(x.soc-avg)>20)add('warn',`Modulo ${x.id}: carica al ${x.soc}%, la media del banco è ${fmt(avg)}%`,'Attenzione');
-    if(d>50)add('warn',`Modulo ${x.id}: scarto fra le celle di ${d} mV`,'Attenzione')}
-  document.getElementById('alerts').replaceChildren(...out)
+function alerts(list){
+  document.getElementById('alerts').replaceChildren(...list.map(a=>{const r=el('div',{class:'al '+a.level,role:'alert'});
+    r.append(el('span',{class:'ic','aria-hidden':'true'},a.level==='crit'?'✕':'!'),el('span',{},a.text),el('span',{class:'m'},a.level==='crit'?'Anomalia':'Attenzione'));return r}))
 }
 const cellColor=dev=>`color-mix(in oklab, var(${dev<0?'--low':'--high'}) ${(Math.min(Math.abs(dev)/60,1)*100).toFixed(0)}%, var(--neutral))`;
 function rows(m){

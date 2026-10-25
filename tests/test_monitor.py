@@ -112,6 +112,70 @@ class StorageTest(unittest.TestCase):
         self.assertEqual((days[0][1]["Bat OV Times"], days[-1][1]["Bat OV Times"]), ("1100", "1198"))
 
 
+class RobustnessTest(unittest.TestCase):
+    """Difetti segnalati dalla revisione del 25/10/2026."""
+
+    def test_bms_battery_and_mosfet_states_raise_alerts(self):
+        mods = bank()
+        mods[0]["mos_st"] = "Fault"
+        mods[2]["bv_st"] = "Alarm"
+        alerts = pm.assess(mods)
+        self.assertEqual(mods[0]["level"], "crit")
+        self.assertEqual(mods[2]["level"], "crit")
+        self.assertTrue(any("MOSFET" in a["text"] and a["level"] == "crit" for a in alerts))
+
+    def test_missing_cell_readings_are_reported(self):
+        answers = {"pwr": fixture("pwr.txt")}
+        cmd = lambda c, timeout=6: answers.get(c, "")  # bat N e soh N rispondono vuoto
+        mods, problems = pm.read_bank(cmd, 0, {}, {})
+        self.assertEqual(len(mods), 4)
+        self.assertTrue(problems)
+        alerts = pm.assess(mods)
+        self.assertTrue(all(m["level"] != "ok" for m in mods))
+        self.assertTrue(any("celle" in a["text"] for a in alerts))
+
+    def test_failed_soh_read_keeps_previous_health(self):
+        soh = {2: {1: "Abnormal"}}
+        answers = {"pwr": fixture("pwr.txt"), "bat 2": fixture("bat_2.txt")}
+        cmd = lambda c, timeout=6: answers.get(c, "")
+        mods, _ = pm.read_bank(cmd, 0, soh, {})  # soh 2 vuoto in questo ciclo
+        cell1 = [c for c in mods[1]["cells"] if c["n"] == 1][0]
+        self.assertEqual(cell1["soh"], "Abnormal")
+
+    def test_corrupt_csv_rows_are_skipped(self):
+        mods = bank()
+        ts = (datetime.now() - timedelta(minutes=30)).isoformat(timespec="seconds")
+        pm.append_log(ts, mods)
+        with open(pm.month_file(ts), "a") as fh:
+            fh.write(ts[:13] + ",1,49.2\n")  # riga troncata da uno spegnimento
+            fh.write("non,una,riga,valida\n")
+        h = pm.history(1)
+        self.assertEqual(sorted(h["series"]), [1, 2, 3, 4])
+        with open(os.path.join(pm.DATA, f"pylontech-stats-{ts[:7]}.jsonl"), "a") as fh:
+            fh.write('{"ts": "2026-10-2\n')
+        pm.stats_history(8)  # non deve sollevare eccezioni
+
+    def test_daily_snapshot_only_after_fresh_read(self):
+        today = datetime.now().isoformat(timespec="seconds")
+        self.assertFalse(pm.snapshot_due("2000-01-01", today, fresh=False))
+        self.assertTrue(pm.snapshot_due("2000-01-01", today, fresh=True))
+        self.assertFalse(pm.snapshot_due(today[:10], today, fresh=True))
+
+    def test_legacy_v010_counter_files_are_still_read(self):
+        ts = datetime.now().isoformat(timespec="seconds")
+        with open(os.path.join(pm.DATA, f"pylontech-stat-{ts[:7]}.csv"), "a", newline="") as fh:
+            fh.write("ts,id," + ",".join(pm.LEGACY_STAT_KEYS) + "\n")
+            fh.write(f"{ts},9," + ",".join(["5"] * len(pm.LEGACY_STAT_KEYS)) + "\n")
+        self.assertEqual(pm.stats_history(2)["9"][-1][1]["Bat OV Times"], "5")
+
+    def test_all_counters_are_kept_in_daily_snapshots(self):
+        stat = pm.parse_kv(fixture("stat_2.txt"))
+        pm.append_stats(datetime.now().isoformat(timespec="seconds"), {7: {"stat": stat}})
+        saved = pm.stats_history(2)["7"][-1][1]
+        for key in ("COT Times", "Pwr OV Times", "DHT Times", "LV Cnt", "Bat OV Times"):
+            self.assertIn(key, saved)
+
+
 class HttpTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
