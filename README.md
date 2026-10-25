@@ -44,6 +44,8 @@ It never sends configuration, time, shutdown, reset, login or update commands.
 - A Pylontech **console cable** (RJ45 to USB or RS232), the same one used with Pylontech BatteryView. Plug the RJ45 end into the **CONSOLE** port of the **master** module (the one linked to the inverter).
 - Any Linux machine with Python 3 or Docker. Tested on a Raspberry Pi 4 with Debian 12.
 
+Cable types and console pinout: [docs/hardware.md](docs/hardware.md).
+
 Only one program can use the console port at a time: stop the monitor before using BatteryView.
 
 If the console stays silent (for example after a power cut), the script sends the standard 1200 baud wake-up sequence and then switches to 115200 baud.

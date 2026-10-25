@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import serial
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 SERIAL = os.environ.get("PYLON_PORT", "/dev/ttyUSB0")
 DATA = os.environ.get("PYLON_DATA", os.path.dirname(os.path.abspath(__file__)))
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -124,12 +124,16 @@ def append_log(ts, mods):
             w.writerow({"ts": ts, **m})
 
 
+def fresh_stats(details):
+    """Moduli i cui contatori sono stati letti con successo in questo ciclo."""
+    return [mid for mid, d in sorted(details.items()) if d.get("stat_fresh") and d.get("stat")]
+
+
 def append_stats(ts, details):
-    """Copia giornaliera di tutti i contatori di stat N, una riga JSON per modulo."""
+    """Copia giornaliera dei contatori di stat N appena letti, una riga JSON per modulo."""
     with open(os.path.join(DATA, f"pylontech-stats-{ts[:7]}.jsonl"), "a") as fh:
-        for mid, d in sorted(details.items()):
-            if d.get("stat"):
-                fh.write(json.dumps({"ts": ts, "id": mid, "stat": d["stat"]}) + "\n")
+        for mid in fresh_stats(details):
+            fh.write(json.dumps({"ts": ts, "id": mid, "stat": details[mid]["stat"]}) + "\n")
 
 
 def snapshot_due(stat_day, ts, fresh):
@@ -183,6 +187,8 @@ def read_bank(cmd, cycle, soh, details):
     if not mods:
         raise RuntimeError("risposta pwr vuota: il cavo è sul modulo master (1)?")
     problems = []
+    for d in details.values():  # anche i moduli non più presenti: i loro contatori non sono freschi
+        d["stat_fresh"] = False
     for m in mods:
         mid, errs = m["id"], []
         rows = parse_table(cmd(f"bat {mid}"), 12)
@@ -198,15 +204,16 @@ def read_bank(cmd, cycle, soh, details):
                        "soh": soh.get(mid, {}).get(int(r[0]), "?")} for r in rows]
         if rows and rows[0][9].isdigit():
             m["remain_mah"] = int(rows[0][9])
-        d = details.setdefault(mid, {})
+        d = details.setdefault(mid, {"stat_fresh": False})
         if cycle % DETAIL_EVERY == 0:
             for key, command_, timeout in (("pwr", f"pwr {mid}", 6), ("stat", f"stat {mid}", 10)):
                 got = parse_kv(cmd(command_, timeout))
                 if got:
                     d[key] = got
+                    d["ts"] = datetime.now().isoformat(timespec="seconds")
+                    d["stat_fresh"] = d["stat_fresh"] or key == "stat"
                 else:
                     errs.append(command_)
-            d["ts"] = datetime.now().isoformat(timespec="seconds")
         if cycle % INFO_EVERY == 0 or "info" not in d:
             got = parse_kv(cmd(f"info {mid}"))
             if got:
@@ -260,7 +267,7 @@ def poller():
             latest.update(ts=ts, modules=mods, alerts=assess(mods),
                           error=("Lettura parziale: " + "; ".join(problems)) if problems else None)
             append_log(ts, mods)
-            if snapshot_due(stat_day, ts, fresh=cycle % DETAIL_EVERY == 0) and any(d.get("stat") for d in details.values()):
+            if snapshot_due(stat_day, ts, fresh=bool(fresh_stats(details))):
                 append_stats(ts, details)
                 stat_day = ts[:10]
             cycle += 1

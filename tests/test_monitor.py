@@ -105,8 +105,8 @@ class StorageTest(unittest.TestCase):
 
         stat = pm.parse_kv(fixture("stat_2.txt"))
         pm.append_stats((datetime.now() - timedelta(days=3)).isoformat(timespec="seconds"),
-                        {2: {"stat": dict(stat, **{"Bat OV Times": "1100"})}})
-        pm.append_stats(datetime.now().isoformat(timespec="seconds"), {2: {"stat": stat}})
+                        {2: {"stat": dict(stat, **{"Bat OV Times": "1100"}), "stat_fresh": True}})
+        pm.append_stats(datetime.now().isoformat(timespec="seconds"), {2: {"stat": stat, "stat_fresh": True}})
         days = pm.stats_history(8)["2"]
         self.assertEqual(len(days), 2)
         self.assertEqual((days[0][1]["Bat OV Times"], days[-1][1]["Bat OV Times"]), ("1100", "1198"))
@@ -161,6 +161,28 @@ class RobustnessTest(unittest.TestCase):
         self.assertTrue(pm.snapshot_due("2000-01-01", today, fresh=True))
         self.assertFalse(pm.snapshot_due(today[:10], today, fresh=True))
 
+    def test_failed_stat_read_is_not_saved_as_todays_snapshot(self):
+        old_stat = pm.parse_kv(fixture("stat_2.txt"))
+        details = {1: {"stat": old_stat}, 9: {"stat": old_stat}}  # 9: modulo non più presente nel banco
+        answers = {"pwr": fixture("pwr.txt"), "bat 1": fixture("bat_1.txt"), "soh 1": fixture("soh_1.txt")}
+        cmd = lambda c, timeout=6: answers.get(c, "")  # stat N fallisce per tutti
+        pm.read_bank(cmd, 0, {}, details)
+        self.assertEqual(details[1]["stat"], old_stat)  # i dati vecchi restano visibili
+        self.assertFalse(pm.fresh_stats(details))
+        ts = datetime.now().isoformat(timespec="seconds")
+        self.assertFalse(pm.snapshot_due("2000-01-01", ts, fresh=bool(pm.fresh_stats(details))))
+        self.assertEqual(pm.fresh_stats({1: {"stat": old_stat, "stat_fresh": True}, 9: {"stat": old_stat}}), [1])
+
+    def test_first_cycle_with_empty_details(self):
+        # all'avvio i dettagli sono vuoti: il primo ciclo deve leggere e segnare i contatori come freschi
+        answers = {"pwr": fixture("pwr.txt"), "bat 1": fixture("bat_1.txt"), "soh 1": fixture("soh_1.txt"),
+                   "stat 1": fixture("stat_2.txt"), "pwr 1": fixture("pwr_2.txt")}
+        cmd = lambda c, timeout=6: answers.get(c, "")
+        details = {}
+        mods, _ = pm.read_bank(cmd, 0, {}, details)
+        self.assertEqual(len(mods), 4)
+        self.assertEqual(pm.fresh_stats(details), [1])
+
     def test_legacy_v010_counter_files_are_still_read(self):
         ts = datetime.now().isoformat(timespec="seconds")
         with open(os.path.join(pm.DATA, f"pylontech-stat-{ts[:7]}.csv"), "a", newline="") as fh:
@@ -170,7 +192,7 @@ class RobustnessTest(unittest.TestCase):
 
     def test_all_counters_are_kept_in_daily_snapshots(self):
         stat = pm.parse_kv(fixture("stat_2.txt"))
-        pm.append_stats(datetime.now().isoformat(timespec="seconds"), {7: {"stat": stat}})
+        pm.append_stats(datetime.now().isoformat(timespec="seconds"), {7: {"stat": stat, "stat_fresh": True}})
         saved = pm.stats_history(2)["7"][-1][1]
         for key in ("COT Times", "Pwr OV Times", "DHT Times", "LV Cnt", "Bat OV Times"):
             self.assertIn(key, saved)

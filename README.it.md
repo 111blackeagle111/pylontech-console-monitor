@@ -44,6 +44,8 @@ Non invia mai comandi di configurazione, ora, spegnimento, reset, login o aggior
 - Un **cavo console** Pylontech (da RJ45 a USB o RS232), lo stesso usato con il programma Pylontech BatteryView. Il lato RJ45 va nella porta **CONSOLE** del modulo **master**, quello collegato all'inverter.
 - Un qualsiasi computer Linux con Python 3 o Docker. Provato su un Raspberry Pi 4 con Debian 12.
 
+Tipi di cavo e piedinatura della console: [docs/hardware.md](docs/hardware.md#italiano).
+
 La porta console può essere usata da un solo programma alla volta: ferma il monitor prima di usare BatteryView.
 
 Se la console non risponde (per esempio dopo un'interruzione di corrente), lo script invia la sequenza standard di risveglio a 1200 baud e poi passa a 115200 baud.
