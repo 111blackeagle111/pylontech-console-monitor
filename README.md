@@ -137,7 +137,7 @@ There is no authentication. Keep it on your local network or behind a VPN (Tails
 
 ## Disclaimer
 
-Not affiliated with Pylontech. Use at your own risk: the script only reads data, but you are responsible for your installation.
+Not affiliated with Pylontech. Use at your own risk: the script only reads data, but you are responsible for your installation. Pylontech states that console commands outside its own procedures can void the warranty; see [docs/hardware.md](docs/hardware.md#warranty).
 
 ## License
 

@@ -137,7 +137,7 @@ Non c'è autenticazione. Tienilo nella rete di casa o dietro una VPN (Tailscale,
 
 ## Avvertenze
 
-Progetto non affiliato a Pylontech. Uso a proprio rischio: lo script legge soltanto, ma la responsabilità dell'impianto resta tua.
+Progetto non affiliato a Pylontech. Uso a proprio rischio: lo script legge soltanto, ma la responsabilità dell'impianto resta tua. Pylontech scrive che usare comandi della console non previsti dalle sue procedure può far decadere la garanzia: vedi [docs/hardware.md](docs/hardware.md#garanzia).
 
 ## Licenza
 
