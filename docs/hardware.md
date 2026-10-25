@@ -39,9 +39,13 @@ Pins 4 and 5 are an optional hardware wake-up input: a pulse of at least 0.5 s a
 
 TX and RX must cross: battery TX → adapter RX, adapter TX → battery RX. Leave pins 4 and 5 unconnected unless you build the wake-up circuit.
 
-**Connector orientation.** Hold the RJ45 plug with the latch (clip) facing down and the gold contacts facing up and toward you: pin 1 is on the left, pin 8 on the right. This is the standard numbering used by any network cable crimper.
+**Connector orientation.** Hold the RJ45 plug with the cable pointing down and the gold contacts facing you; the latch (clip) is on the back, away from you. Pin 1 is then on the left, pin 8 on the right. This is the standard numbering used by any network cable crimper.
 
-**Quick check with a multimeter.** With the cable plugged into the battery and nothing else connected, measure between pin 3 (battery TX) and pin 8 (GND): an idle RS232 output sits at a negative voltage, typically −5 to −10 V. Seeing it confirms both the pin order and that the port is RS232. About 0 V usually means wrong pins, a sleeping console or a TTL port.
+**Quick check with a multimeter.** With the cable plugged into the battery and nothing else connected, set the meter to DC volts and put the **red probe on pin 3** (battery TX) and the **black probe on pin 8** (GND). An idle RS232 output sits at a negative voltage, typically −5 to −10 V. Seeing it confirms that pins 3 and 8 are the right ones and that the port is RS232; about 0 V usually means wrong pins, a sleeping console or a TTL port.
+
+This only checks the battery's transmit side. It says nothing about the RX path (pin 6) or about the wiring inside the cable.
+
+**Full wiring check (continuity).** Unplug the cable from **both** the battery and the PC, set the meter to continuity, and check each wire end to end: RJ45 pin 3 ↔ DB9 pin 2, RJ45 pin 6 ↔ DB9 pin 3, RJ45 pin 8 ↔ DB9 pin 5. Each pair must beep, and no other combination should. If your cable goes straight from RJ45 to USB with no DB9 in between, as many ready-made console cables do, this test is not possible: rely on the voltage check and on the monitor actually reading data.
 
 ### RJ11 console pinout (older modules)
 
@@ -124,9 +128,13 @@ I pin 4 e 5 sono un ingresso di risveglio hardware facoltativo: un impulso di al
 
 TX e RX vanno incrociati: TX della batteria → RX dell'adattatore, TX dell'adattatore → RX della batteria. Lascia scollegati i pin 4 e 5, a meno di costruire il circuito di risveglio.
 
-**Orientamento del connettore.** Tieni lo spinotto RJ45 con la linguetta (clip) verso il basso e i contatti dorati verso l'alto e verso di te: il pin 1 è a sinistra, il pin 8 a destra. È la stessa numerazione usata da qualsiasi crimpatrice per cavi di rete.
+**Orientamento del connettore.** Tieni lo spinotto RJ45 con il cavo verso il basso e i contatti dorati rivolti verso di te; la linguetta (clip) è sul lato opposto, verso il retro. Il pin 1 è allora a sinistra e il pin 8 a destra. È la stessa numerazione usata da qualsiasi crimpatrice per cavi di rete.
 
-**Controllo rapido col multimetro.** Con il cavo inserito nella batteria e nient'altro collegato, misura fra il pin 3 (TX della batteria) e il pin 8 (GND): un'uscita RS232 a riposo sta a una tensione negativa, di solito fra −5 e −10 V. Se la vedi, l'ordine dei pin è giusto e la porta è RS232. Circa 0 V di solito vuol dire pin sbagliati, console addormentata o porta TTL.
+**Controllo rapido col multimetro.** Con il cavo inserito nella batteria e nient'altro collegato, metti il multimetro in tensione continua (V DC), con il **puntale rosso sul pin 3** (TX della batteria) e il **puntale nero sul pin 8** (GND). Un'uscita RS232 a riposo sta a una tensione negativa, di solito fra −5 e −10 V. Se la vedi, i pin 3 e 8 sono quelli giusti e la porta è RS232; circa 0 V di solito vuol dire pin sbagliati, console addormentata o porta TTL.
+
+Questa prova controlla solo il lato di trasmissione della batteria. Non dice nulla sul percorso RX (pin 6) né sui collegamenti interni del cavo.
+
+**Verifica completa dei collegamenti (continuità).** Scollega il cavo **sia dalla batteria sia dal PC**, metti il multimetro in prova di continuità e controlla ogni filo da un capo all'altro: pin 3 RJ45 ↔ pin 2 DB9, pin 6 RJ45 ↔ pin 3 DB9, pin 8 RJ45 ↔ pin 5 DB9. Ogni coppia deve suonare, e nessun'altra combinazione. Se il tuo cavo va direttamente da RJ45 a USB senza un DB9 in mezzo, come molti cavi console già pronti, questa prova non si può fare: ti bastano il controllo della tensione e il fatto che il monitor legga davvero i dati.
 
 ### Piedinatura RJ11 della console (moduli più vecchi)
 
