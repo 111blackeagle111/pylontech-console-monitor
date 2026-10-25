@@ -1,9 +1,9 @@
 services:
   monitor:
     build: .
-    image: ghcr.io/111blackeagle111/pylontech-console-monitor:${PYLON_TAG:-0.1.0}
+    image: ghcr.io/111blackeagle111/pylontech-console-monitor:${PYLON_TAG:-0.1.2}
     container_name: pylon-monitor
-    restart: unless-stopped
+    restart: always
     devices:
       - ${PYLON_DEVICE:-/dev/ttyUSB0}:/dev/ttyPylon
     group_add:
