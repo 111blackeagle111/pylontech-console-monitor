@@ -1,7 +1,7 @@
 services:
   monitor:
     build: .
-    image: ghcr.io/111blackeagle111/pylontech-console-monitor:${PYLON_TAG:-0.1.1}
+    image: ghcr.io/111blackeagle111/pylontech-console-monitor:${PYLON_TAG:-0.1.2}
     container_name: pylon-monitor
     restart: always
     devices:
